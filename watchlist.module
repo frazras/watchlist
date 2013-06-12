@@ -1,0 +1,126 @@
+<?Php
+/**
+* @file
+* Code for the watchlist_example module
+*/
+
+/**
+* Implements hook_menu().
+*/
+function watchlist_menu() {
+  $items['watchlist'] = array(
+    'title' => 'Watchlists',
+    'page callback' => 'watchlist_listing',
+    'access arguments' => array('access content'),
+  );
+
+  return $items;
+}
+
+function watchlist_listing($nid=0) {
+
+
+  $node_types = array('watchlists');
+  // instantiate the query using our extended query object
+  $query = new NodeEntityFieldQuery();
+  // set up some basic parameters
+  $query
+    ->entityCondition('bundle', $node_types);
+
+  // execute the query
+  $result = $query->execute();
+  $output = array();
+  // return the nodes as teasers
+  if (!empty($result['node'])) {
+    // $output['nodes'] = node_view_multiple(node_load_multiple(array_keys($result['node'])), 'teaser');
+    $x = node_load_multiple(array_keys($result['node']));
+    //dsm($x);
+
+    if(!($nid && is_numeric($nid))){
+
+      $count=0;
+      $output['add'] = array(
+        '#type' => 'markup',
+        '#markup' => "<h5>".l('+ Add Watchlists', 'node/add/watchlists')."</h5>");
+        foreach($x as $node){
+          $myarr=array();
+          $output['title_'.$count] = array(
+            '#type' => 'markup',
+            '#markup' => "<span style=\"font-size:25px\">".l($node->title, 'watchlist/' . $node->nid )."</span>  <span style=\"font-size:16px\">". 
+            sizeof($node->field_ticker1['und']). " Ticker(s) </span> | ".l('Add', 'node/' . $node->nid . '/edit'),
+          );
+
+          //foreach($node->field_ticker1['und'] as $ticker){$myarr[]= $ticker['value'];}
+
+          $output['desc_'.$count++] = array(
+            '#type' => 'markup',
+            '#markup' =>'<p>'.$node -> body['und'][0]['value'].'</p>');
+            /* $output ['stocks'.$count++] =array(
+            '#items' => $myarr,
+            '#theme' => 'item_list',
+            );*/
+          }
+          //$output['pager']['#markup'] = theme('pager', $query->pager);
+        }
+        else{
+          $count=0;
+          $node = $x[$nid];
+              $myarr=array();
+              $output['title'] = array(
+                '#type' => 'markup',
+                '#markup' => "<span style=\"font-size:25px\">".$node->title."</span> | ".l('Add Stock ', 'node/' . $node->nid . '/edit'));
+
+              foreach($node->field_ticker1['und'] as $ticker){$myarr[]= $ticker['value'];}
+
+              $output['desc'] = array(
+                '#type' => 'markup',
+                '#markup' =>'<p>'.$node -> body['und'][0]['value'].'</p>');
+                $output ['stocks_'.$count++] =array(
+                '#items' => $myarr,
+                '#theme' => 'item_list',
+                );
+              }          
+        }
+
+      else {
+        $output['status']['#markup'] = t('No results were returned.');
+      }
+
+      return $output;
+    }
+
+  function watchlist_theme() {
+    return array(
+      'watchlist_listing' => array(
+        'arguments' => array('watchlist_listing' => NULL),
+        'template' => 'page-watchlist',
+      ),
+    );
+  }
+
+  class NodeEntityFieldQuery extends EntityFieldQuery {
+    // define some defaults for the class
+    public function __construct() {
+      // now we don't need to define these over and over anymore
+      $this
+        ->entityCondition('entity_type', 'node')
+        ->propertyCondition('status', 1);
+      //->propertyOrderBy('created', 'DESC');
+      // define a pager
+      $this->pager();
+    }
+
+    /**
+    * If we're on a node, and if the entity_type is node, exclude the local node from the query
+    */
+    public function excludeNode($nid) {
+      if (!$nid) {
+        $object = menu_get_object();
+        $nid = $object->nid;
+      }
+      if (!empty($nid) && $this->entityConditions['entity_type']['value'] === 'node') {
+        $this->propertyCondition('nid', $nid, '<>');
+      }
+      return $this;
+    }
+  }
